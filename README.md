@@ -1,6 +1,6 @@
 # svm-finance-research
-**Research Question
-**
+**Research Question**
+
 Do canonical momentum and volatility features contain out-of-sample predictive information about next-period return direction in financial time series?
 
 **Null Hypothesis**
