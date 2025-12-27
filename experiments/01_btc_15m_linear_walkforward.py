@@ -10,6 +10,9 @@ import numpy as np
 ASSET = 'BTC-USD'
 FREQUENCY = '15m'
 L = 96
+C = 1.0
+lr = 1e-3
+T = 1000
 
 df = yf.download(
     tickers=ASSET, 
@@ -29,10 +32,33 @@ df["d2"] = df["d"] ** 2
 df["Volatility"] = np.sqrt(df["d2"].rolling(L).mean())
 df = df.dropna()
 
-X = df[["Momentum", "Volatility"]].values
-y = df['y'].values
-C = 1.0
-lr = 1e-3
-T = 1000
+N = len(df)
+split = int(0.8 * N)
 
-w,b = svm.train(X,y,C,lr,T)
+df_train = df.iloc[:split]
+df_test = df.iloc[split:]
+
+X_train = df_train[["Momentum", "Volatility"]].values
+y_train = df_train['y'].values
+
+X_test = df_test[["Momentum", "Volatility"]].values
+y_test = df_test['y'].values
+
+w,b = svm.train(X_train,y_train,C,lr,T)
+
+scores = X_test @ w + b
+y_hat = np.sign(scores)
+y_hat[y_hat == 0] = 1
+
+acc = np.mean(y_hat == y_test)
+print("test accuracy:", acc)
+
+pos = (y_test == 1)
+neg = (y_test == -1)
+
+tpr = np.mean(y_hat[pos] == 1) if np.any(pos) else np.nan
+tnr = np.mean(y_hat[neg] == -1) if np.any(neg) else np.nan
+bacc = 0.5 * (tpr + tnr)
+
+print("test balanced accuracy:", bacc)
+print("test class balance (+1):", np.mean(pos))
