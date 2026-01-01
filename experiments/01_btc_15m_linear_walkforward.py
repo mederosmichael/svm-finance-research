@@ -2,24 +2,32 @@
 # btc-usd, 15-minute bars
 # linear svm, walk-forward evaluation
 
-import yfinance as yf
+import pandas as pd
 import src.svm_primal as svm
 import datetime as dt
 import numpy as np
+from pathlib import Path
 
-ASSET = 'BTC-USD'
-FREQUENCY = '15m'
+#ASSET = 'BTC-USD'
+#FREQUENCY = '15m'
 L = 96
 C = 1.0
 lr = 1e-3
 T = 1000
+DATA_PATH = Path("data/BTC-USD_15m_20251103_20260101.csv")
 
-df = yf.download(
-    tickers=ASSET, 
-    start=dt.datetime.now() - dt.timedelta(days=59), 
-    end=dt.datetime.now(), 
-    interval=FREQUENCY
-)
+df = pd.read_csv(DATA_PATH, index_col=0, parse_dates=True)
+
+if df.empty:
+    raise RuntimeError("loaded empty dataframe")
+
+for c in ["Open", "High", "Low", "Close", "Adj Close", "Volume"]:
+    if c in df.columns:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
+df = df.dropna(subset=["Close"])
+
+
 
 df['log_prices'] = np.log(df['Close'])
 df['r'] = df['log_prices'].diff()
