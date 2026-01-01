@@ -4,7 +4,6 @@
 
 import pandas as pd
 import src.svm_primal as svm
-import datetime as dt
 import numpy as np
 from pathlib import Path
 
@@ -68,5 +67,74 @@ tpr = np.mean(y_hat[pos] == 1) if np.any(pos) else np.nan
 tnr = np.mean(y_hat[neg] == -1) if np.any(neg) else np.nan
 bacc = 0.5 * (tpr + tnr)
 
+print("rows:", len(df))
+print("start:", df.index.min())
+print("end:", df.index.max())
+print("features: Momentum, Volatility")
+print("label: sign(next return)")
+
 print("test balanced accuracy:", bacc)
 print("test class balance (+1):", np.mean(pos))
+# =====================
+# baselines
+# =====================
+
+y_hat_allpos = np.ones_like(y_test)
+acc_allpos = np.mean(y_hat_allpos == y_test)
+
+tpr_allpos = np.mean(y_hat_allpos[pos] == 1) if np.any(pos) else np.nan
+tnr_allpos = np.mean(y_hat_allpos[neg] == -1) if np.any(neg) else np.nan
+bacc_allpos = 0.5 * (tpr_allpos + tnr_allpos)
+
+print("baseline all +1 accuracy:", acc_allpos)
+print("baseline all +1 balanced accuracy:", bacc_allpos)
+
+
+p = np.mean(y_train == 1)
+rng = np.random.default_rng(0)
+y_hat_coin = np.where(rng.random(len(y_test)) < p, 1, -1)
+
+acc_coin = np.mean(y_hat_coin == y_test)
+tpr_coin = np.mean(y_hat_coin[pos] == 1) if np.any(pos) else np.nan
+tnr_coin = np.mean(y_hat_coin[neg] == -1) if np.any(neg) else np.nan
+bacc_coin = 0.5 * (tpr_coin + tnr_coin)
+
+print("baseline coin accuracy:", acc_coin)
+print("baseline coin balanced accuracy:", bacc_coin)
+
+
+y_hat_lastret = np.sign(df_test["r"].values)
+y_hat_lastret[y_hat_lastret == 0] = 1
+
+acc_lastret = np.mean(y_hat_lastret == y_test)
+tpr_lastret = np.mean(y_hat_lastret[pos] == 1) if np.any(pos) else np.nan
+tnr_lastret = np.mean(y_hat_lastret[neg] == -1) if np.any(neg) else np.nan
+bacc_lastret = 0.5 * (tpr_lastret + tnr_lastret)
+
+print("baseline last-return accuracy:", acc_lastret)
+print("baseline last-return balanced accuracy:", bacc_lastret)
+# =====================
+# permutation test
+# =====================
+
+rng = np.random.default_rng(0)
+B = 50
+null_bacc = []
+
+for _ in range(B):
+    y_perm = rng.permutation(y_train)
+    w_p, b_p = svm.train(X_train, y_perm, C, lr, T)
+
+    scores_p = X_test @ w_p + b_p
+    y_hat_p = np.sign(scores_p)
+    y_hat_p[y_hat_p == 0] = 1
+
+    tpr_p = np.mean(y_hat_p[pos] == 1) if np.any(pos) else np.nan
+    tnr_p = np.mean(y_hat_p[neg] == -1) if np.any(neg) else np.nan
+    null_bacc.append(0.5 * (tpr_p + tnr_p))
+
+null_bacc = np.array(null_bacc)
+p_value = (np.sum(null_bacc >= bacc) + 1) / (B + 1)
+
+print("perm test mean null bacc:", float(null_bacc.mean()))
+print("perm test p-value (>= observed):", float(p_value))
